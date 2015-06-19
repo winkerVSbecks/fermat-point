@@ -3,6 +3,17 @@ svg {
   max-width: 100%;
   height: auto;
   max-height: 100%;
+  transition: all .2s ease-in-out;
+}
+
+.handle {
+  cursor: move;
+  r: 5;
+  transition: r .2s ease-in-out;
+}
+.handle:hover {
+  opacity: 0.5;
+  r: 30;
 }
 
 pre {
@@ -32,4 +43,3 @@ code {
 .prose p:first-child {
   font-size: var(--h3)
 }
-
