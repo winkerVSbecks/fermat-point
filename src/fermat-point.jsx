@@ -1,70 +1,90 @@
 
-var React = require('react');
+var React = require('react/addons');
 var R = require('ramda');
 var Line = require('./line.jsx');
+var Path = require('./path.jsx');
+var Handle = require('./handle.jsx');
 var clrs = require('colors.css');
 
 
 var FermatPoint = React.createClass({
 
-  getDefaultProps: function() {
-    return {
-      size: 512,
-      vertices: [{
-        r: 64,
-        a: 90
-      }, {
-        r: 64,
-        a: 210
-      }, {
-        r: 64,
-        a: 330
-      }]
+  getInitialState: function() {
+    return getInitialState(this.props.size);
+  },
+
+  componentWillReceiveProps: function() {
+    return this.setState(getInitialState(this.props.size));
+  },
+
+  dragUpdate: function(deltaX, deltaY, idx) {
+
+    var updateObj = {};
+    var trianglePts = R.clone(this.state.trianglePts);
+    updateObj[idx] = {
+      $set: [trianglePts[idx][0] += deltaX, trianglePts[idx][1] += deltaY]
     };
+
+    var newTrianglePts = React.addons.update(this.state.trianglePts, updateObj);
+
+    this.setState({
+      trianglePts: newTrianglePts
+    });
   },
 
   render: function() {
-
-    var size = this.props.size;
+    var vm = this;
+    var size = vm.state.size;
     var viewBox = [0, 0, size, size].join(' ');
-    var rotation = this.props.rotation;
-    var v = this.props.vertices;
     var c = size / 2;
+    var apexAngles = [180, -180, -60];
 
-    // The vertices are generated through
-    // radial coordinates (r and θ)
-    var pts = [
-      [rx(v[0].r, v[0].a, c), ry(v[0].r, v[0].a, c)],
-      [rx(v[1].r, v[1].a, c), ry(v[1].r, v[1].a, c)],
-      [rx(v[2].r, v[2].a, c), ry(v[2].r, v[2].a, c)]
-    ];
+    // The sides of the triangles
+    var segments = [{
+      pts: [ this.state.trianglePts[1], this.state.trianglePts[2] ],
+      styles: {
+        stroke: clrs.blue,
+        circle: clrs.aqua
+      }
+    }, {
+      pts: [ this.state.trianglePts[2], this.state.trianglePts[0] ],
+      styles: {
+        stroke: clrs.purple,
+        circle: clrs.fuchsia
+      }
+    }, {
+      pts: [ this.state.trianglePts[0], this.state.trianglePts[1] ],
+      styles: {
+        stroke: clrs.green,
+        circle: clrs.lime
+      }
+    }];
 
-    var sides = [
-      [pts[0], pts[1]],
-      [pts[1], pts[2]],
-      [pts[2], pts[0]]
-    ];
-
-    // Utility method to generate line segments
-    var getSegments = R.mapIndexed(function(vertices, idx) {
-      return (
-        <Line key={ idx }
-          pts={ vertices }
-          styles={ { stroke: clrs.navy } } />
-      );
-    });
-
-    // The triangle
-    var segments = getSegments(R.slice(0, 3, sides));
+    // Handles for the main triangle's vertices
+    var handles = R.mapIndexed(R.partial(buildHandle, vm.dragUpdate), this.state.trianglePts);
+    // The Equlateral triangle – with a circumcenter - for each
+    // side of the main triangle
+    var eqTriangles = R.mapIndexed(R.partial(buildEqTriangle, apexAngles), segments);
+    // The connector from the apex of the equlateral triangle to the
+    // vertex of the main triangle that sits directly opposite to it
+    var connectors = R.mapIndexed(R.partial(buildConnectors, apexAngles, segments), this.state.trianglePts);
 
     return (
       <svg xmlns="http://www.w3.org/svg/2000"
+        className="border border--silver"
         viewBox={ viewBox }
         width={ size }
-        height={ size }>
+        height={ size }
+        fill="none">
 
         <g className="fermat-point">
-          { segments }
+          <Path pts={ this.state.trianglePts }
+            stroke={ clrs.red }
+            strokeWidth={ 1.5 }
+            closed={ true } />
+          { eqTriangles }
+          { connectors }
+          { handles }
         </g>
 
       </svg>
@@ -75,19 +95,124 @@ var FermatPoint = React.createClass({
 });
 
 
+
 /**
  * Utilities
  */
 function rad(a) {
   return Math.PI * a / 180;
-};
+}
 
 function rx(r, a, c) {
   return c - r * Math.cos(rad(a));
-};
+}
 
 function ry(r, a, c) {
   return c - r * Math.sin(rad(a));
-};
+}
+
+function angle(u, v, inRadians) {
+
+  var slope = [v[1] - u[1], v[0] - u[0]];
+
+  if (inRadians) {
+    // angle in radians
+    return Math.atan2(slope[0], slope[1]);
+  } else {
+    // angle in degrees
+    return Math.atan2(slope[0], slope[1]) * 180 / Math.PI;
+  }
+}
+
+function d2d(u, v) {
+  return Math.sqrt( (u[0] - v[0]) * (u[0] - v[0]) +
+                    (u[1] - v[1]) * (u[1] - v[1]) );
+}
+
+function apex(u, v, a) {
+  var r = d2d(u, v);
+  var a = angle(v, u) - 60;
+
+  return [ rx(r, a, u[0]), ry(r, a, u[1]) ];
+}
+
+function buildEqTriangle(apexAngles, segment, idx) {
+  var pts = segment.pts;
+  var vertices = [ pts[0], apex(pts[0], pts[1], apexAngles[idx]), pts[1] ];
+  var circumcenter = getCircumcenter(vertices);
+  var r = d2d(circumcenter, pts[0]);
+
+  return (
+    <g key={ idx }>
+      <Path pts={ vertices }
+        stroke={ segment.styles.stroke }
+        opacity={ 0.5 } />
+      <circle cx={ circumcenter[0] }
+        cy={ circumcenter[1] }
+        r={ r }
+        stroke={ segment.styles.circle }
+        strokeWidth={ 0.5 }
+        opacity={ 0.5 } />
+    </g>
+  );
+}
+
+function buildConnectors(apexAngles, segments, pt, idx) {
+  return (
+    <Line key={ idx }
+      pts={
+        [apex(segments[idx].pts[0], segments[idx].pts[1], apexAngles[idx]), pt]
+      }
+      opacity={ 0.5 }
+      stroke={ clrs.orange } />
+  );
+}
+
+function buildHandle(dragUpdate, pt, idx) {
+  return (
+    <Handle
+      x={ pt[0] }
+      y={ pt[1] }
+      key={ idx }
+      id={ idx }
+      onUpdate={ dragUpdate } />
+  );
+}
+
+function getCircumcenter(pts) {
+  return [
+    (pts[0][0] + pts[1][0] + pts[2][0]) / 3,
+    (pts[0][1] + pts[1][1] + pts[2][1]) / 3
+  ];
+}
+
+function getInitialState(size) {
+
+  var vertices = [{
+    r: 150,
+    a: 0
+  }, {
+    r: 200,
+    a: 60
+  }, {
+    r: 200,
+    a: 180
+  }];
+
+  var v = R.sortBy(R.prop('a'), vertices);
+  var c = size / 2;
+  var trianglePts = [
+    [rx(v[0].r, v[0].a, c), ry(v[0].r, v[0].a, c)],
+    [rx(v[1].r, v[1].a, c), ry(v[1].r, v[1].a, c)],
+    [rx(v[2].r, v[2].a, c), ry(v[2].r, v[2].a, c)]
+  ];
+
+  return {
+    size: size,
+    trianglePts: trianglePts,
+    mouseX: 0,
+    mouseY: 0
+  };
+}
 
 module.exports = FermatPoint;
