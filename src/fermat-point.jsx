@@ -1,10 +1,11 @@
 
 var React = require('react/addons');
 var R = require('ramda');
+var clrs = require('colors.css');
 var Line = require('./line.jsx');
 var Path = require('./path.jsx');
 var Handle = require('./handle.jsx');
-var clrs = require('colors.css');
+var Label = require('./label.jsx');
 
 
 var FermatPoint = React.createClass({
@@ -41,19 +42,19 @@ var FermatPoint = React.createClass({
 
     // The sides of the triangles
     var segments = [{
-      pts: [ this.state.trianglePts[1], this.state.trianglePts[2] ],
+      pts: [ vm.state.trianglePts[1], vm.state.trianglePts[2] ],
       styles: {
         stroke: clrs.blue,
         circle: clrs.aqua
       }
     }, {
-      pts: [ this.state.trianglePts[2], this.state.trianglePts[0] ],
+      pts: [ vm.state.trianglePts[2], vm.state.trianglePts[0] ],
       styles: {
         stroke: clrs.purple,
         circle: clrs.fuchsia
       }
     }, {
-      pts: [ this.state.trianglePts[0], this.state.trianglePts[1] ],
+      pts: [ vm.state.trianglePts[0], vm.state.trianglePts[1] ],
       styles: {
         stroke: clrs.green,
         circle: clrs.lime
@@ -61,13 +62,15 @@ var FermatPoint = React.createClass({
     }];
 
     // Handles for the main triangle's vertices
-    var handles = R.mapIndexed(R.partial(buildHandle, vm.dragUpdate), this.state.trianglePts);
+    var handles = R.mapIndexed(R.partial(buildHandle, vm.dragUpdate), vm.state.trianglePts);
     // The Equlateral triangle – with a circumcenter - for each
     // side of the main triangle
     var eqTriangles = R.mapIndexed(R.partial(buildEqTriangle, apexAngles), segments);
     // The connector from the apex of the equlateral triangle to the
     // vertex of the main triangle that sits directly opposite to it
-    var connectors = R.mapIndexed(R.partial(buildConnectors, apexAngles, segments), this.state.trianglePts);
+    var connectors = R.mapIndexed(R.partial(buildConnectors, apexAngles, segments), vm.state.trianglePts);
+    // Labels for the triangle
+    var triangleLabels = R.mapIndexed(buildTriangleLabels, vm.state.trianglePts);
 
     return (
       <svg xmlns="http://www.w3.org/svg/2000"
@@ -78,10 +81,11 @@ var FermatPoint = React.createClass({
         fill="none">
 
         <g className="fermat-point">
-          <Path pts={ this.state.trianglePts }
+          <Path pts={ vm.state.trianglePts }
             stroke={ clrs.red }
             strokeWidth={ 1.5 }
             closed={ true } />
+          { triangleLabels }
           { eqTriangles }
           { connectors }
           { handles }
@@ -129,7 +133,7 @@ function d2d(u, v) {
                     (u[1] - v[1]) * (u[1] - v[1]) );
 }
 
-function apex(u, v, a) {
+function getApex(u, v, a) {
   var r = d2d(u, v);
   var a = angle(v, u) - 60;
 
@@ -138,21 +142,29 @@ function apex(u, v, a) {
 
 function buildEqTriangle(apexAngles, segment, idx) {
   var pts = segment.pts;
-  var vertices = [ pts[0], apex(pts[0], pts[1], apexAngles[idx]), pts[1] ];
+  var apex = getApex(pts[0], pts[1], apexAngles[idx]);
+  var vertices = [ pts[0], apex, pts[1] ];
   var circumcenter = getCircumcenter(vertices);
   var r = d2d(circumcenter, pts[0]);
+  var labels = ['P', 'R', 'Q'];
+  var directions = ['top', 'bottom', 'left'];
 
   return (
     <g key={ idx }>
       <Path pts={ vertices }
         stroke={ segment.styles.stroke }
         opacity={ 0.5 } />
+
       <circle cx={ circumcenter[0] }
         cy={ circumcenter[1] }
         r={ r }
         stroke={ segment.styles.circle }
         strokeWidth={ 0.5 }
         opacity={ 0.5 } />
+
+      <Label position={ apex }
+        tag={ labels[idx] }
+        dir={ directions[idx] } />
     </g>
   );
 }
@@ -161,7 +173,7 @@ function buildConnectors(apexAngles, segments, pt, idx) {
   return (
     <Line key={ idx }
       pts={
-        [apex(segments[idx].pts[0], segments[idx].pts[1], apexAngles[idx]), pt]
+        [getApex(segments[idx].pts[0], segments[idx].pts[1], apexAngles[idx]), pt]
       }
       opacity={ 0.5 }
       stroke={ clrs.orange } />
@@ -186,13 +198,33 @@ function getCircumcenter(pts) {
   ];
 }
 
+function buildTriangleLabels(vertex, idx) {
+  var labels = [{
+    value: 'B',
+    direction: 'left'
+  }, {
+    value: 'A',
+    direction: 'top'
+  },{
+    value: 'C',
+    direction: 'right'
+  }];
+
+  return (
+    <Label key={ idx }
+      position={ vertex }
+      tag={ labels[idx].value }
+      dir={ labels[idx].direction } />
+  );
+}
+
 function getInitialState(size) {
 
   var vertices = [{
     r: 150,
     a: 0
   }, {
-    r: 200,
+    r: 180,
     a: 60
   }, {
     r: 200,

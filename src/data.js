@@ -10,7 +10,7 @@ module.exports = {
   title: pkg.title,
   description: pkg.description,
   keywords: pkg.keywords,
-  created: '06/16/2015',
+  created: '06/21/2015',
   modified: new Date().toLocaleDateString(),
   css: cssnext([
     '@import "basscss";',
