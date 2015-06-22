@@ -7,8 +7,15 @@ var Handle = React.createClass({
 
   getInitialState: function() {
     return {
-      isDragging: false
+      isDragging: false,
+      radius: 5
     };
+  },
+
+  hover: function(e) {
+    this.setState({
+      radius: 30
+    });
   },
 
   selectElement: function(e) {
@@ -21,7 +28,8 @@ var Handle = React.createClass({
 
   deSelectElement: function() {
     this.setState({
-      isDragging: false
+      isDragging: false,
+      radius: 5
     });
   },
 
@@ -47,7 +55,9 @@ var Handle = React.createClass({
         id={ this.props.id }
         cx={ this.props.x }
         cy={ this.props.y }
+        r={ this.state.radius }
         fill={ clrs.yellow }
+        onMouseOver={ this.hover }
         onMouseDown={ this.selectElement }
         onMouseMove={ this.drag }
         onMouseUp={ this.deSelectElement }
