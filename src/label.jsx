@@ -10,7 +10,8 @@ var Label = React.createClass({
       fontFamily: 'Baskerville, serif',
       fontSize: 24,
       fontStyle: 'italic',
-      fill: clrs.navy
+      fill: clrs.navy,
+      pointerEvents: 'none'
     };
 
     var offsets = {
