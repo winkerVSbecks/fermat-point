@@ -10,7 +10,12 @@ var Label = React.createClass({
       fontFamily: 'Baskerville, serif',
       fontSize: 24,
       fontStyle: 'italic',
-      fill: clrs.navy
+      fill: clrs.navy,
+      pointerEvents: 'none',
+      WebkitUserSelect: 'none',
+      MozUserSelect: 'none',
+      msUserSelect: 'none',
+      userSelect: 'none'
     };
 
     var offsets = {
